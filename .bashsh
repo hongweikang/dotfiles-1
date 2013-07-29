@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Allows shell functions existing in shrc to be used like binaries
+BASHRC="${BASHRC:-"${HOME}/.bashrc"}"
+source ${BASHRC} || exit 247;
+[ "`type -t "${0##*/}"`" = "function" ] && \
+{ "${0##*/}" ${@} ; exit $? ; } || \
+{ echo "Unknown function: ${0##*/}" > /dev/stderr ; exit 254 ; };
