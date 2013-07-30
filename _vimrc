@@ -2,10 +2,10 @@ set nocompatible  " Use Vim settings, rather then Vi settings
 filetype off      " Required for Vundle setup
 
 " Source in vim runtimepath from git dotfile repo
-set rtp+=$DOTFILES/.vim
+set rtp+=$DOTFILES/_vim
 
 " Enable vundle (from git dotfile repo)
-set rtp+=$DOTFILES/.vim/bundle/vundle/
+set rtp+=$DOTFILES/_vim/bundle/vundle/
 call vundle#rc()
 
 " let Vundle manage Vundle (required!)
@@ -240,13 +240,6 @@ autocmd FileType python setlocal omnifunc=pythoncomplete#Complete
 autocmd FileType xml setlocal omnifunc=xmlcomplete#CompleteTags
 autocmd FileType ruby setlocal omnifunc=rubycomplete#Complete
 autocmd FileType haskell setlocal omnifunc=necoghc#omnifunc
-
-" Haskell post write lint and check with ghcmod
-" $ `cabal install ghcmod` if missing and ensure
-" ~/.cabal/bin is in your $PATH.
-if !executable("ghcmod")
-    autocmd BufWritePost *.hs GhcModCheckAndLintAsync
-endif
 
 " Enable heavy omni completion.
 if !exists('g:neocomplcache_omni_patterns')

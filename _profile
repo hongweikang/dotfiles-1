@@ -6,6 +6,7 @@
 # allow for override of default download location if MOPUB_DOTFILES
 # environment variable is defined.
 export DOTFILES="${MOPUB_DOTFILES:-${HOME}/dotfiles}"
+export MYVIMRC="${MYVIMRC:-${DOTFILES}/_vimrc}"J
 
 # E.G. enable_sh_plugin git /home/user /home/common
 enable_sh_plugin() {
@@ -16,8 +17,8 @@ enable_sh_plugin() {
     local DOTFILES=${@:-${DOTFILES}}
     local d
     for d in ${DOTFILES}; do
-        if [ -r $d/profile.d/${PLUGIN}.sh ]; then
-            . $d/profile.d/${PLUGIN}.sh
+        if [ -r $d/_profile.d/${PLUGIN}.sh ]; then
+            . $d/_profile.d/${PLUGIN}.sh
         fi
     done
 }
@@ -42,7 +43,7 @@ enable_all_sh_plugins() {
     for d in ${@}; do
         if [ -d ${d} ]; then
             local p
-            for p in ${d}/profile.d/*.sh; do
+            for p in ${d}/_profile.d/*.sh; do
                 if [ -r $p ]; then
                     . $p
                 fi
