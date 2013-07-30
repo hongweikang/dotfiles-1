@@ -62,6 +62,13 @@ set novisualbell
 set t_vb=
 set tm=500
 
+if has('gui_running')
+    set vb
+    set guioptions-=T
+    set guioptions-=r
+    set go-=L
+endif
+
 " Remove trailing whitespace
 nnoremap <silent> <F5> :let _s=@/<Bar>:%s/\s\+$//e<Bar>:let @/=_s<Bar>:nohl<CR>:retab<CR>
 
@@ -69,8 +76,10 @@ nnoremap <silent> <F5> :let _s=@/<Bar>:%s/\s\+$//e<Bar>:let @/=_s<Bar>:nohl<CR>:
 syntax enable
 if $TERM == "xterm-256color"
     set t_Co=256
-endi
-colorscheme wombat256mod
+    colorscheme wombat256mod
+else
+    colorscheme wombat
+endif
 
 " Leader tricks
 let mapleader=','
@@ -111,15 +120,6 @@ set viminfo^=%
 
 " Remap VIM 0 to first non-blank character
 map 0 ^
-
-if has('gui_running')
-   set vb
-   set guioptions-=T
-   set guioptions-=r
-   set go-=L
-   set guifont=Source\ Code\ Pro\ for\ Powerline:h12
-   nnoremap <Leader>s :set expandtab<cr>:%retab<cr>:w<cr>
-endif
 
 " PLUGINS
 
