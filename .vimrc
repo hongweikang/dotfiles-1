@@ -9,12 +9,12 @@ call vundle#rc()
 Bundle 'gmarik/vundle'
 Bundle 'steffanc/a.vim'
 Bundle 'steffanc/ack.vim'
-Bundle 'kien/ctrlp.vim'
+Bundle 'bling/vim-airline'
 Bundle 'tpope/vim-fugitive'
-Bundle 'Shougo/neocomplcache'
+Bundle 'kien/ctrlp.vim'
 Bundle 'scrooloose/nerdcommenter'
 Bundle 'scrooloose/nerdtree'
-Bundle 'Lokaltog/powerline'
+Bundle 'Shougo/neocomplcache'
 
 filetype plugin indent on     " required!
 
@@ -62,13 +62,6 @@ set novisualbell
 set t_vb=
 set tm=500
 
-if has('gui_running')
-   set vb
-   set guioptions-=T
-   set guioptions-=r
-   set go-=L
-endif
-
 " Remove trailing whitespace
 nnoremap <silent> <F5> :let _s=@/<Bar>:%s/\s\+$//e<Bar>:let @/=_s<Bar>:nohl<CR>:retab<CR>
 
@@ -76,16 +69,15 @@ nnoremap <silent> <F5> :let _s=@/<Bar>:%s/\s\+$//e<Bar>:let @/=_s<Bar>:nohl<CR>:
 syntax enable
 if $TERM == "xterm-256color"
     set t_Co=256
-    colorscheme wombat256mod
-else
-    colorscheme wombat
-endif
+endi
+colorscheme wombat256mod
 
 " Leader tricks
 let mapleader=','
-nnoremap <Leader>w :w<cr>
+nnoremap <Leader>s :w<cr>
 nnoremap <Leader>q :q<cr>
 nnoremap <Leader>d :sh<cr>
+nnoremap <Leader>b oimport pdb<cr>pdb.set_trace()<esc>
 
 " Quickly edit/reload the vimrc file
 nnoremap <silent> <Leader>ve :vsp $MYVIMRC<CR>
@@ -108,6 +100,10 @@ nnoremap <Leader>wt :tab split<CR>:exec("tag ".expand("<cword>"))<CR>
 nnoremap <Leader>wv :vsp <CR>:exec("tag ".expand("<cword>"))<CR>
 nnoremap <Leader>wr :!ctags -R --c++-kinds=+p --fields=+iaS --extra=+q .; cscope -bR;<cr><cr>
 
+" Use the arrows to change buffers
+map <right> :bn<cr>
+map <left> :bp<cr>
+
 " Return to last edit position when opening files (You want this!)
 autocmd BufReadPost *
      \ if line("'\"") > 0 && line("'\"") <= line("$") |
@@ -120,45 +116,16 @@ set viminfo^=%
 " Remap VIM 0 to first non-blank character
 map 0 ^
 
+if has('gui_running')
+   set vb
+   set guioptions-=T
+   set guioptions-=r
+   set go-=L
+   set guifont=Source\ Code\ Pro\ for\ Powerline:h12
+   nnoremap <Leader>s :set expandtab<cr>:%retab<cr>:w<cr>
+endif
+
 " PLUGINS
-" Powerline
-set rtp+=~/.vim/bundle/powerline/powerline/bindings/vim
-
-" Ack plugin
-" Use Ag (https://github.com/ggreer/the_silver_searcher) instead of ACK if we
-" have it if we have it
-if executable("ag")
-    let g:ackprg = 'ag --nogroup --nocolor --column'
-endif
-nnoremap <Leader>ff :Ack! 
-nnoremap <Leader>fw #*:AckFromSearch!<CR>
-" search selection
-vmap <Leader>ff /##*:AckFromSearch!<CR>
-
-" NERD Tree
-nnoremap <Leader>r :NERDTreeToggle<cr>
-let NERDTreeIgnore=['\.os$', '\.o$', '\.pyc$','\~$']
-
-" Ctrl-P
-let g:ctrlp_map = '<c-p>'
-let g:ctrlp_match_window_bottom = 0
-let g:ctrlp_match_window_reversed = 0
-let g:ctrlp_working_path_mode = 'ra'
-let g:ctrlp_use_caching = 1
-let g:ctrlp_custom_ignore = {
-    \ 'dir':  '\v[\/]\.(git|hg|svn)$',
-    \ 'file': '\v\.(exe|so|dll|pyc|os|swp|orig|bak)$'}
-if executable("ag")
-    let g:ctrlp_user_command = 'ag %s -l --nocolor -g ""'
-endif
-
-" Fugitive
-nnoremap <Leader>gb :Gblame<cr>
-nnoremap <Leader>ge :Gedit<cr>
-nnoremap <Leader>gd :Gdiff<cr>
-nnoremap <Leader>gw :Gbrowse<cr>
-nnoremap <Leader>gs :Gstatus<cr>
-nnoremap <Leader>gl :Glog<cr>
 
 " a.vim
 "switches to the header file corresponding to the current file being edited (or vise versa)
@@ -182,11 +149,40 @@ nnoremap <Leader>ait :IHT<cr>
 ":IHN cycles through matches
 nnoremap <Leader>ain :IHN<cr>
 
-"" YouCompleteMe
-"let g:ycm_add_preview_to_completeopt = 0
-"let g:ycm_autoclose_preview_window_after_completion = 1
-"let g:ycm_key_detailed_diagnostics = '<Leader>u'
-"nnoremap <leader>jd :YcmCompleter GoToDefinitionElseDeclaration<CR>
+" Ack plugin
+" Use Ag (https://github.com/ggreer/the_silver_searcher) instead of ACK if we
+" have it if we have it
+if executable("ag")
+    let g:ackprg = 'ag --nogroup --nocolor --column'
+endif
+nnoremap <Leader>ff :Ack! 
+nnoremap <Leader>fw #*:AckFromSearch!<CR>
+" search selection
+vmap <Leader>ff /##*:AckFromSearch!<CR>
+
+" Airline plugin
+"let g:airline_powerline_fonts=1
+
+" Ctrl-P
+let g:ctrlp_map = '<c-p>'
+let g:ctrlp_match_window_bottom = 0
+let g:ctrlp_match_window_reversed = 0
+let g:ctrlp_working_path_mode = 'ra'
+let g:ctrlp_use_caching = 1
+let g:ctrlp_custom_ignore = {
+    \ 'dir':  '\v[\/]\.(git|hg|svn)$',
+    \ 'file': '\v\.(exe|so|dll|pyc|os|swp|orig|bak)$'}
+if executable("ag")
+    let g:ctrlp_user_command = 'ag %s -l --nocolor -g ""'
+endif
+
+" Fugitive
+nnoremap <Leader>gb :Gblame<cr>
+nnoremap <Leader>ge :Gedit<cr>
+nnoremap <Leader>gd :Gdiff<cr>
+nnoremap <Leader>gw :Gbrowse<cr>
+nnoremap <Leader>gs :Gstatus<cr>
+nnoremap <Leader>gl :Glog<cr>
 
 " Neocomplcache
 " Disable AutoComplPop.
@@ -265,3 +261,8 @@ let g:neocomplcache_omni_patterns.ruby = '[^. *\t]\.\h\w*\|\h\w*::'
 " For perlomni.vim setting.
 " https://github.com/c9s/perlomni.vim
 let g:neocomplcache_omni_patterns.perl = '\h\w*->\h\w*\|\h\w*::'
+
+" NERD Tree
+nnoremap <Leader>r :NERDTreeToggle<cr>
+let NERDTreeIgnore=['\.os$', '\.o$', '\.pyc$','\~$']
+
