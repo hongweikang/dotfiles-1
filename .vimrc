@@ -1,12 +1,16 @@
 set nocompatible  " Use Vim settings, rather then Vi settings
 filetype off      " Required for Vundle setup
 
-" Vundle
-set rtp+=~/.vim/bundle/vundle/
+" Source in vim runtimepath from git dotfile repo
+set rtp+=$DOTFILES/.vim
+
+" Enable vundle (from git dotfile repo)
+set rtp+=$DOTFILES/.vim/bundle/vundle/
 call vundle#rc()
 
 " let Vundle manage Vundle (required!)
 Bundle 'gmarik/vundle'
+" Add add'l vundle packages
 Bundle 'steffanc/a.vim'
 Bundle 'steffanc/ack.vim'
 Bundle 'bling/vim-airline'
@@ -16,7 +20,7 @@ Bundle 'scrooloose/nerdcommenter'
 Bundle 'scrooloose/nerdtree'
 Bundle 'Shougo/neocomplcache'
 
-filetype plugin indent on     " required!
+filetype plugin indent on     " required by Vundle
 
 set autoindent
 set autoread
