@@ -100,10 +100,6 @@ nnoremap <Leader>wt :tab split<CR>:exec("tag ".expand("<cword>"))<CR>
 nnoremap <Leader>wv :vsp <CR>:exec("tag ".expand("<cword>"))<CR>
 nnoremap <Leader>wr :!ctags -R --c++-kinds=+p --fields=+iaS --extra=+q .; cscope -bR;<cr><cr>
 
-" Use the arrows to change buffers
-map <right> :bn<cr>
-map <left> :bp<cr>
-
 " Return to last edit position when opening files (You want this!)
 autocmd BufReadPost *
      \ if line("'\"") > 0 && line("'\"") <= line("$") |
