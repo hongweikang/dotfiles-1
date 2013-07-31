@@ -13,6 +13,7 @@ Bundle 'gmarik/vundle'
 " Add add'l vundle packages
 Bundle 'steffanc/a.vim'
 Bundle 'steffanc/ack.vim'
+Bundle 'steffanc/cscopemaps.vim'
 Bundle 'bling/vim-airline'
 Bundle 'tpope/vim-fugitive'
 Bundle 'kien/ctrlp.vim'
