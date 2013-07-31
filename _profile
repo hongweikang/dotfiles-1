@@ -3,9 +3,9 @@
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 
 # Assuming default download location to be "/home/user/dotfiles", but
-# allow for override of default download location if MOPUB_DOTFILES
+# allow for override of default download location if DOTFILES
 # environment variable is defined.
-export DOTFILES="${MOPUB_DOTFILES:-${HOME}/dotfiles}"
+export DOTFILES="${DOTFILES:-${HOME}/dotfiles}"
 export MYVIMRC="${MYVIMRC:-${DOTFILES}/_vimrc}"J
 
 # E.G. enable_sh_plugin git /home/user /home/common
