@@ -87,10 +87,12 @@ endif
 
 " Leader tricks
 let mapleader=','
-nnoremap <Leader>s :w<cr>
+nnoremap <Leader>w :w<cr>
 nnoremap <Leader>q :q<cr>
 nnoremap <Leader>d :sh<cr>
-nnoremap <Leader>b oimport pdb<cr>pdb.set_trace()<esc>
+
+" breakpoints
+nnoremap <Leader>bp oimport pdb<cr>pdb.set_trace()<esc>
 
 " Quickly edit/reload the vimrc file
 nnoremap <silent> <Leader>ve :vsp $MYVIMRC<CR>
@@ -109,9 +111,9 @@ nnoremap <C-k> <C-w>k
 nnoremap <C-l> <C-w>l
 
 " ctags commands
-nnoremap <Leader>wt :tab split<CR>:exec("tag ".expand("<cword>"))<CR>
-nnoremap <Leader>wv :vsp <CR>:exec("tag ".expand("<cword>"))<CR>
-nnoremap <Leader>wr :!ctags -R --c++-kinds=+p --fields=+iaS --extra=+q .; cscope -bR;<cr><cr>
+nnoremap <Leader>ts :tab split<CR>:exec("tag ".expand("<cword>"))<CR>
+nnoremap <Leader>tt :vsp <CR>:exec("tag ".expand("<cword>"))<CR>
+nnoremap <Leader>tr :!ctags -R --c++-kinds=+p --fields=+iaS --extra=+q .; cscope -bR;<cr><cr>
 
 " Return to last edit position when opening files (You want this!)
 autocmd BufReadPost *
@@ -153,7 +155,7 @@ nnoremap <Leader>ain :IHN<cr>
 " Use Ag (https://github.com/ggreer/the_silver_searcher) instead of ACK if we
 " have it if we have it
 if executable("ag")
-    let g:ackprg = 'ag --nogroup --nocolor --column'
+    let g:ackprg = 'ag --nogroup --nocolor --column --smart-case'
 endif
 nnoremap <Leader>ff :Ack! 
 nnoremap <Leader>fw #*:AckFromSearch!<CR>
@@ -173,7 +175,7 @@ let g:ctrlp_custom_ignore = {
     \ 'dir':  '\v[\/]\.(git|hg|svn)$',
     \ 'file': '\v\.(exe|so|dll|pyc|os|swp|orig|bak)$'}
 if executable("ag")
-    let g:ctrlp_user_command = 'ag %s -l --nocolor -g ""'
+    let g:ctrlp_user_command = 'ag %s -l --nocolor -g "" --smart-case'
 endif
 
 " Fugitive
