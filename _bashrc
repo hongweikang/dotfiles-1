@@ -1,0 +1,536 @@
+#!/usr/bin/env bash
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+
+
+
+# Test if session is interactive
+function is_interactive()
+{
+    # If $- contains 'i', then we're interactive
+    [[ $- == *i* ]] \
+        && return 0 \
+        || return 1
+}
+
+# Test if arg is a known alias
+function is_alias()
+{
+    [ -z "${1}" ] && return 252
+    [ "$(type -t ${1})" = "alias" ] || return 250
+}
+
+# Test if arg is a known function
+function is_function()
+{
+    [ -z "${1}" ] && return 252
+    [ "$(type -t ${1})" = "function" ] || return 251
+}
+
+
+__check_var()
+{ local ret=0; local v="$1"; [ -n "${!v}" ] || ret=253; __debug_vars v ${v} ret;     return $ret; }
+__check_dir()
+{ local ret=0; local d="$1"; [ -d "${d}"  ] || ret=249; __debug_vars d ret;          return $ret; }
+__check_file()
+{ local ret=0; local f="$1"; [ -f "${f}"  ] || ret=247; __debug_vars f ret;          return $ret; }
+__check_islink()
+{ local ret=0; local h="$1"; [ -h "${h}"  ] || ret=244; __debug_vars h ret;          return $ret; }
+__check_read()
+{ local ret=0; local f="$1"; 
+                        __check_file "$f"   || return $?;
+                             [ -r "${f}"  ] || ret=242; __debug_vars f ret;          return $ret; } 
+__check_zero()
+{ local ret=0; local f="$1"; 
+                        __check_file "$f"   || return $?;
+                           [ ! -s "${f}"  ] || ret=241; __debug_vars f ret;          return $ret; } 
+__check_exec()
+{ local ret=0; local x="$1"; 
+                        __check_file "$x"   || return $?;
+                             [ -x "${x}"  ] || ret=246; __debug_vars x ret;          return $ret; } 
+__check_link()
+{ local ret=0; local h="$1"; 
+                        __check_islink "$h" || return $?;
+                             [ -e "${h}"  ] || ret=243; __debug_vars h ret;          return $ret; } 
+__check_pid()
+{ local ret=0; local p="$1"; 
+                        __check_dir "/proc" && \
+                      { __check_dir "/proc/$p" || ret=235; } || \
+                      { __export_prog kill && { $_KILL -0 $p 2>/dev/null || ret=235; } || ret=$?; }
+                                                        __debug_vars p ret;          return $ret; }
+__check_pidfile()
+{ local ret=0; local f="$1"; 
+                       __check_file "$f"    || { ret=234; __debug_vars f ret;   return $ret; }
+                       __check_read "$f"    || { ret=$?;  __debug_vars f ret;   return $ret; }
+                       __check_pid "$(<$f)" ||   ret=$?;  __debug_vars f ret;   return $ret; }
+
+# wrapper for __check_thing functions
+# echo's an error in case of error
+# used to avoid double traces
+# XXX trace functionality TBD
+check_thing()
+{ 
+    local func="${1}"; shift;
+    __${func} "${@}"
+    return $?
+    #XXX return $(__error_n 1 $? "${@}");
+}
+for i in var dir file read zero exec islink link pid pidfile; do
+    eval "function check_$i() { check_thing \${FUNCNAME} "\${@}";}"
+done
+
+# Handles both __function and function
+# First run strips off the _thing (check_var)
+# Second run strips out the _var  (check_thing)
+check_var_thing()
+{ 
+    ${1%_*} "$2" \
+        && ${1//_var/} "${!2}" "${3:-$2}"
+    return $?
+}
+for i in dir file read zero exec islink link; do
+    eval "function __check_var_${i}() { check_var_thing \${FUNCNAME} "\${@}"; }"
+    eval "function   check_var_${i}() { check_var_thing \${FUNCNAME} "\${@}"; }"
+done;
+
+function basename()     { printf "%b\n" "${1##*/}"; }
+function cdlast()       { cd $(command ls -rt1 | command sed \$\!d); }
+function dirname()      { printf "%b\n" "${1%/*}";  }
+# prints the current timestamp
+function date_YMD_HMS() { command date +%Y%m%d_%H%M%S; }
+function history_r()    { history -r; }
+# History search
+function hgrep()        { history | command grep $1; }
+function path()         { printf "%b\n" ${PATH//:/\\n}; }
+function sortu()        { command sort | command uniq; }
+# Makes a string lowercase
+# tolower($1 = string)
+function tolower()      { command tr '[A-Z]' '[a-z]' <<<"$1" ; }
+function vimdiff_w()    { command vim -d -c 'set diffopt+=iwhite' ${@}; }
+function xgrep()        { command find . -iname "${2}" -exec command grep -H "${1}" {} \;; }
+
+# Expanded 'cd' functionality. Works normally, but also handles case when a
+# file is (accidentally) at the end of a pathname
+function cd()
+{
+    # $ cd
+    [[ -z "$1" ]] && { command cd; return $?; }
+
+    # $ cd -
+    { [[ "x$1" =~ ^x(|-)$ ]] || __check_dir "$1"; } && \
+        { command cd "$1"; return $?; }
+    
+    # $ cd <something>
+    local DIR
+    # Handle Symlink'd directories; reach through the symlink
+    DIR="$1"
+    __check_var_link DIR && { DIR="$(readlinks "$1")"; }
+    __check_var_dir  DIR && { cd "$1"; return $?; }
+
+    # Try the parent if we're still erroring; may be a file
+    DIR="$1"
+    __check_var_dir DIR || { DIR="$(dirname "$DIR")"; }
+    __check_var_dir DIR && \
+    {
+        #echo "$DIR"
+        command cd "$DIR"
+        local RET=$?
+        echo "$PWD"
+        return $RET
+    }
+    # Let cd do its own thing if our
+    # best effort fails
+    command cd "$1"
+
+}
+
+# Convert epoch (Unix) timestamp to readable stamp
+function date_epochtime()
+{
+    local KERNELNAME=$(command uname -s)
+    case "${KERNELNAME}" in
+        Linux)
+            command date -u -d @${1} '+%Y-%m-%d %H:%M:%S%z'
+            command date    -d @${1} '+%Y-%m-%d %H:%M:%S%z'
+            ;;
+        FreeBSD)
+            command date -u -j -f %s ${1} '+%Y-%m-%d %H:%M:%S%z'
+            command date    -j -f %s ${1} '+%Y-%m-%d %H:%M:%S%z'
+            ;;
+        Darwin|SunOS)
+            command which perl || return $?
+            command perl -e '
+            use POSIX qw(strftime);
+            my $epoch = $ARGV[0] != "" ? $ARGV[0] : time();
+            print strftime "%F %T+0000\n", gmtime($epoch);
+            print strftime "%F %T%z\n", localtime($epoch);
+            ' "${1}" || return $?
+            ;;
+        *)
+            printf "%b\n" "Unsupported platform ${KERNELNAME}"
+    esac
+}
+
+function head_tail()
+{
+    for file in ${@}; do
+        [ -f "${file}" ] || continue
+        printf '\n%b\n' "${file} >>>"
+        command sed q ${file} && command sed \$\!d ${file}
+    done
+}
+
+function prompt()
+{
+    [ -z "${PS1}" ] && return 1;
+
+    # color_name='\[\033[ color_code m\]';
+
+    local           fg_black='\[\033[00;30;47m\]';
+    local       fg_firebrick='\[\033[00;31m\]';
+    local       bg_firebrick='\[\033[00;30;41m\]';
+    local             fg_red='\[\033[01;31m\]';
+    local             bg_red='\[\033[01;30;41m\]';
+    local          fg_forest='\[\033[00;32m\]';
+    local          bg_forest='\[\033[00;30;42m\]';
+    local           fg_green='\[\033[01;32m\]';
+    local           bg_green='\[\033[01;30;42m\]';
+    local           fg_brown='\[\033[00;33m\]';
+    local           bg_brown='\[\033[00;30;43m\]';
+    local          fg_yellow='\[\033[01;33m\]';
+    local          bg_yellow='\[\033[01;30;43m\]';
+    local            fg_navy='\[\033[00;34m\]';
+    local            bg_navy='\[\033[00;30;44m\]';
+    local            fg_blue='\[\033[01;34m\]';
+    local            bg_blue='\[\033[01;30;44m\]';
+    local          fg_purple='\[\033[00;35m\]';
+    local          bg_purple='\[\033[00;30;45m\]';
+    local         fg_magenta='\[\033[01;35m\]';
+    local         bg_magenta='\[\033[01;30;45m\]';
+    local           fg_cadet='\[\033[00;36m\]';
+    local           bg_cadet='\[\033[00;30;46m\]';
+    local            fg_cyan='\[\033[01;36m\]';
+    local            bg_cyan='\[\033[01;30;46m\]';
+    local            fg_gray='\[\033[00;37m\]';
+    local            bg_gray='\[\033[00;30;47m\]';
+    local           fg_white='\[\033[01;37;40m\]';
+    local            restore='\[\033[00m\]';
+
+    local  color_host="${!1}";
+    local  color_dir="${!2}";
+    local  color_restore="${restore}";
+    color_dir="${color_dir:-$fg_cyan}";
+    [ -z "${color_host}" ] && color_dir="" && color_restore="";
+
+    export PS1="${color_host}[\u@\h ${color_dir}\W${color_restore}${color_host}]\\\$${color_restore} ";
+    export PS2='> ';
+    export PS4='+ ';
+}
+
+# Process search
+function psgrep() { command ps -Ao pid,ppid,nice,pri,pcpu,ruser,user,args | grep ${1} | fgrep -v "grep ${1}"; }
+# Silent version
+function __psgrep() { psgrep "${1}" >/dev/null; }
+
+# Similar to the python function
+# range ( [start], stop [, step] )
+# start defaults to zero; step defaults to one; priority given to setting start
+function range()
+{
+    is_function seq || return $?;
+    case ${#@} in
+        1) seq 0 $(($1-1));;
+        2) seq $1 $(($2-1));;
+        3)
+            local n;
+            [ $3 -ge 0 ] && n=$(($2-1)) || n=$(($2+1));
+            seq $1 $3 $n;
+            ;;
+        *) return $(__error 252 "seq");;
+    esac
+}
+
+function readlink()
+{
+    # Some platforms don't have a readlink binary, so we're going to try a
+    # few alternative ways.
+    local pathname="${1}";
+    __check_islink "${pathname}" || return $?;
+    if [[ -n "$(command which readlink)" ]]; then
+        command readlink "${pathname}"
+        return $?
+    fi;
+    if [[ -n "$(command which perl)" ]]; then
+        command perl -e "print readlink(\"${pathname}\").\"\n\";"
+        return $?;
+    fi;
+    return $?;
+}
+
+function readlinks()
+{
+    local pathname="${1}";
+    local target;
+    __check_islink "${pathname}" || return $?;
+    while [ -n "${pathname}" ]; do
+        target="$(readlink "${pathname}")"
+        __check_link "${target}" || break;
+        pathname="${target}";
+    done;
+    __check_var_file target || return 243
+    printf "%b\n" "${target}"
+    return 0;
+}
+
+function repeat()
+{
+    # repeater function
+    # First param is the number of repeats,
+    # Second and following is what you want done.
+
+    is_function seq || return $?;
+
+    local count="${1}" i;
+    shift;
+    for i in $(seq "${count}"); do
+        eval "${@}";
+    done;
+}
+
+function seq()
+{
+    if command which seq; then
+        command seq $@;
+        return $?;
+    fi;
+    if commnad which jot; then
+        local option SOPT WOPT ONE TWO;
+        while getopts ":ws:" option;
+        do
+            case "$option" in
+                s) 
+                    SOPT="${OPTARG}" ;;
+                w)
+                    WOPT="yes";;
+            esac;
+        done;
+        unset OPTARG;
+        shift $((OPTIND-1)); unset OPTIND;
+        if [ "x${WOPT}" = "xyes" ]; then
+            let ONE=${#1}
+            let TWO=${#2}
+            __debug_vars ONE TWO;
+            [ "$ONE" -ge "$TWO" ] \
+                && WOPT="%0${ONE}d" \
+                || WOPT="%0${TWO}d";
+        fi;
+        [ -n "$2" ] && local RANGE="$(expr $2 - $1 + 1)";
+        command jot ${SOPT:+-s $SOPT} ${WOPT:+-w $WOPT} ${RANGE} $1 $2;
+        return $?;
+    fi;
+}
+
+function telnet()
+{
+    command which telnet || return $?;
+    is_function uri_parse && uri_parse "${1}"
+    if [ -n "$uri_schema" ] ;then
+        [ "$uri_schema" = "telnet" ] || return 1
+        set -- ${uri_user:+-l $uri_user }$uri_host ${uri_port:-telnet}
+    fi
+    is_function uri_parse && uri_parse
+    command telnet ${@};
+}
+
+#
+# URI parsing function
+#
+# The function creates global variables with the parsed results.
+# It returns 0 if parsing was successful or non-zero otherwise.
+#
+# [schema://][user[:password]@]host[:port][/path][?[arg1=val1]...][#fragment]
+#
+function uri_parse() {
+
+    if [[ ${#} -lt 1 ]]; then
+        unset uri uri_schema uri_address uri_user uri_password uri_host
+        unset uri_port uri_path uri_query uri_fragment uri_parts uri_args
+        return 0
+    fi
+    local pattern count path query 
+
+    # uri capture
+    uri="$@"
+
+    # safe escaping
+    uri="${uri//\`/%60}"
+    uri="${uri//\"/%22}"
+
+    # top level parsing
+    local pattern='^(([a-z]{3,6})://)?((([^:\/]+)(:([^@\/]*))?@)?([^:\/?]+)(:([0-9]+))?)(\/[^?]*)?(\?[^#]*)?(#.*)?$'
+    [[ "$uri" =~ $pattern ]] || \
+    {
+        __debug_vars uri pattern
+        return 1;
+    }
+
+    # component extraction
+    uri=${BASH_REMATCH[0]}
+    uri_schema=${BASH_REMATCH[2]}
+    uri_address=${BASH_REMATCH[3]}
+    uri_user=${BASH_REMATCH[5]}
+    uri_password=${BASH_REMATCH[7]}
+    uri_host=${BASH_REMATCH[8]}
+    uri_port=${BASH_REMATCH[10]}
+    uri_path=${BASH_REMATCH[11]}
+    uri_query=${BASH_REMATCH[12]}
+    uri_fragment=${BASH_REMATCH[13]}
+
+    # path parsing
+    count=0
+    path="$uri_path"
+    pattern='^/+([^/]+)'
+    while [[ $path =~ $pattern ]]; do
+        eval "uri_parts[$count]=\"${BASH_REMATCH[1]}\""
+        path="${path:${#BASH_REMATCH[0]}}"
+        let count++
+    done
+
+    # query parsing
+    count=0
+    query="$uri_query"
+    pattern='^[?&]+([^= ]+)(=([^&]*))?'
+    while [[ $query =~ $pattern ]]; do
+        eval "uri_args[$count]=\"${BASH_REMATCH[1]}\""
+        eval "uri_arg_${BASH_REMATCH[1]}=\"${BASH_REMATCH[3]}\""
+        query="${query:${#BASH_REMATCH[0]}}"
+        let count++
+    done
+
+    # return success
+    return 0
+}
+
+# URLencode/decode pair
+function urlencode()
+{
+    local string="${1}"
+    local strlen=${#string}
+    local encoded=""
+
+    __check_var string
+
+    for (( pos=0 ; pos<strlen ; pos++ )); do
+        c=${string:$pos:1}
+        case "$c" in
+            [-_.~a-zA-Z0-9] ) o="${c}" ;;
+            * )               printf -v o '%%%02x' "'$c" ;;
+        esac
+        encoded+="${o}"
+    done
+    printf '%b\n' "${encoded}"
+}
+function urldecode()
+{
+    printf '%b' "${1//%/\\x}"
+}
+
+#####
+##### aliases #####
+#####
+
+alias ls="command ls"
+alias ll='ls -laF'
+alias l.='ls -ldF .[a-xA-Z0-9]*'
+alias lss='ls -lrS'
+alias lst='ls -lrt'
+alias ld='ls -lF | command fgrep /'
+alias lx='ls -ldF | command fgrep "*"'
+
+#####
+##### env #####
+#####
+
+umask 0022;
+
+# BASH shopts
+if [ -n "${BASH}" ]; then
+    #set -o ignoreeof;  # don't logout on a ^D
+    shopt -u mailwarn;
+    shopt -s checkwinsize;
+    shopt -s cdspell;
+    shopt -s cmdhist;
+    shopt -s extglob;
+    shopt -s no_empty_cmd_completion;
+    shopt -s progcomp;
+    shopt -s hostcomplete;
+    shopt -s interactive_comments;
+    shopt -s promptvars;
+fi;
+
+# be pedantic about writing the history file.
+# but keep individual session's histories alone unless
+#   told to pick it up from the history file.
+#   "history -r"
+shopt -s histappend;
+
+# Fix backspace key
+if command tty -s; then
+    command stty erase '^?';
+fi;
+
+if [ -e ~/.dir_colors ]; then
+    eval $(command dircolors ~/.dir_colors);
+else
+    export LS_COLORS='no=00:fi=00:di=01;34:ln=01;36:pi=40;33:so=00;35:do=00;35:bd=40;33;01:cd=40;33;01:or=41;37;01:ex=01;32:*.bat=01;32:*.btm=01;32:*.cmd=01;32:*.com=01;32:*.dll=01;32:*.exe=01;32:*.xpi=01;32:*.Z=01;31:*.arj=01;31:*.bz2=01;31:*.deb=01;31:*.gz=01;31:*.hqx=01;31:*.lzh=01;31:*.pk3=01;31:*.rar=01;31:*.rpm=01;31:*.srpm=01;31:*.tar=01;31:*.taz=01;31:*.tb2=01;31:*.tbz=01;31:*.tbz2=01;31:*.tgz=01;31:*.tz2=01;31:*.z=01;31:*.zip=01;31:*.zoo=01;31:*.afm=01;35:*.ai=01;35:*.asf=01;35:*.avi=01;35:*.bmp=01;35:*.dl=01;35:*.dvi=01;35:*.epdf=01;35:*.eps=01;35:*.eps2=01;35:*.eps3=01;35:*.epsf=01;35:*.epsi=01;35:*.ept=01;35:*.fax=01;35:*.fig=01;35:*.fli=01;35:*.gif=01;35:*.gl=01;35:*.ico=01;35:*.icon=01;35:*.jpeg=01;35:*.jpg=01;35:*.mng=01;35:*.mov=01;35:*.mpeg=01;35:*.mpg=01;35:*.pbm=01;35:*.pcd=01;35:*.pcds=01;35:*.pct=01;35:*.pcx=01;35:*.pdf=01;35:*.pfa=01;35:*.pfb=01;35:*.pfm=01;35:*.pgm=01;35:*.pict=01;35:*.png=01;35:*.ppm=01;35:*.ps=01;35:*.ps2=01;35:*.ps3=01;35:*.psd=01;35:*.qt=01;35:*.ram=01;35:*.rm=01;35:*.svg=01;35:*.swf=01;35:*.tga=01;35:*.tif=01;35:*.tiff=01;35:*.ttf=01;35:*.vcd=01;35:*.viv=01;35:*.vivo=01;35:*.wmf=01;35:*.wmv=01;35:*.wpg=01;35:*.xbm=01;35:*.xcf=01;35:*.xpm=01;35:*.xwd=01;35:*.yuv=01;35:*.aiff=00;36:*.au=00;36:*.cdr=00;36:*.m3u=00;36:*.mid=00;36:*.mod=00;36:*.mp2=00;36:*.mp3=00;36:*.mp4=00;36:*.ogg=00;36:*.ra=00;36:*.sid=00;36:*.snd=00;36:*.ul=00;36:*.voc=00;36:*.wav=00;36:*.wma=00;36:*.xm=00;36:*.C=01;33:*.ac=01;33:*.am=01;33:*.bib=01;33:*.c=01;33:*.c++=01;33:*.cc=01;33:*.cpp=01;33:*.css=01;33:*.cxx=01;33:*.f=01;33:*.foaf=01;33:*.gpp=01;33:*.h=01;33:*.htm=01;33:*.html=01;33:*.java=01;33:*.l=01;33:*.lsm=01;33:*.m4=01;33:*.pl=01;33:*.pod=01;33:*.py=01;33:*.rdf=01;33:*.rss=01;33:*.tex=01;33:*.texi=01;33:*.texinfo=01;33:*.txt=01;33:*.xml=01;33:*.xsl=01;33:*.y=01;33:*ABOUT-NLS=01;33:*AUTHORS=01;33:*BUGS=01;33:*COPYING=01;33:*ChangeLog=01;33:*INSTALL=01;33:*Makefile=01;33:*NEWS=01;33:*README=01;33:*THANKS=01;33:*TODO=01;33:';
+fi;
+
+export EDITOR="vi";
+export GZIP="-9";
+export HISTFILE="${HOME}/.bash_history";
+export HISTIGNORE="&:ls:ll:[bf]g:exit:hgrep:hgrep *:history:history *:sux:su:make:bc";
+export HISTSIZE=1000;
+export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S%z "
+export LANG="C";
+export LC_ALL="C";
+export LESS="-w -i -s";
+export LESSHISTFILE="${HOME}/.less_history";
+export PAGER="command less";
+
+# Setup locale to native US English UTF, if possible
+unset locale;
+locale=$(command locale -a | command egrep -i "en_us.*utf.*8" | command sed q);
+if [ -n "${locale}" ]; then
+    export LANG="${locale}";
+    export LC_ALL="${locale}";
+fi;
+# XXX Should this be just the default or unset?
+unset locale;
+
+case "$(uanem -s)" in
+    Darwin)
+        is_alias ls && alias ls="command ls -CFG";
+        is_alias ps && alias ps="command ps -Ao pid,ppid,nice,pri,pcpu,ruser,user,args";
+        export LESS="-w -i -s";
+        ;;
+    FreeBSD)
+        is_alias ls && alias ls="command ls -CF";
+        is_alias ps && alias ps="command ps -Ao pid,ppid,nice,pri,pcpu,ruser,user,args";
+        export LESS="-w -i -s -R --prompt=%f (%pb\%, %lmth line, %L lines)$";
+        ;;
+    Linux)
+        is_alias grep && alias grep="command grep --color=auto";
+        is_alias ls   && alias ls="command ls --color=auto -CF";
+        is_alias ps   && alias ps="command ps fuxw";
+        export LESS="-w -i -s -R --prompt=%f (%pb\%, %lmth line, %L lines)$";
+        ;;
+    SunOS)
+        is_alias df && alias df="command df -k";
+        is_alias ls && alias ls="command ls -CF";
+        is_alias ps && alias ps="command ps -ao pid,ppid,nice,pri,pcpu,ruser,user,args";
+        export LESS="-w -i -s";
+        export PAGER;
+        ;;
+esac;
+
+
