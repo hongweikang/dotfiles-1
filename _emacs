@@ -1,4 +1,10 @@
+;; Copy this to your own ~/.emacs file to enable the dotfiles version
+;; (when (file-exists-p (concat (getenv "DOTFILES") "/_emacs")) (load-file (concat (getenv "DOTFILES") "/_emacs")))
+;; Load configuration from dotfiles
+(add-to-list 'load-path (concat (getenv "DOTFILES") "/_emacs.d"))
+;; Load configuration from home directory
 (add-to-list 'load-path "~/.emacs.d/")
+
 (custom-set-variables
   ;; custom-set-variables was added by Custom.
   ;; If you edit it by hand, you could mess it up, so be careful.
