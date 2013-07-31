@@ -17,8 +17,9 @@ enable_sh_plugin() {
     local DOTFILES=${@:-${DOTFILES}}
     local d
     for d in ${DOTFILES}; do
-        if [ -r $d/_profile.d/${PLUGIN}.sh ]; then
-            . $d/_profile.d/${PLUGIN}.sh
+        # check profile.d, _profile.d and .profile.d
+        if [ -r $d/{,.,_}profile.d/${PLUGIN}.sh ]; then
+            . $d/{,.,_}profile.d/${PLUGIN}.sh
         fi
     done
 }
@@ -43,7 +44,8 @@ enable_all_sh_plugins() {
     for d in ${@}; do
         if [ -d ${d} ]; then
             local p
-            for p in ${d}/_profile.d/*.sh; do
+            # check profile.d, _profile.d and .profile.d
+            for p in ${d}/{,.,_}profile.d/*.sh; do
                 if [ -r $p ]; then
                     . $p
                 fi
