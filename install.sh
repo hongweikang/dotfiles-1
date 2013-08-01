@@ -27,7 +27,7 @@ fail () {
 }
 
 link_files () {
-  ln -s $1 $2
+  ln -fs $1 $2
   success "linked $1 to $2"
 }
 
@@ -38,9 +38,9 @@ install_dotfiles () {
   backup_all=false
   skip_all=false
 
-  for source in *;
+  for source in _*;
   do
-    dest="$HOME/.`basename \"${source%.*}\"`"
+    dest="$HOME/`basename \"${source/_/.}\"`"
 
     if [ -f $dest ] || [ -d $dest ]
     then
