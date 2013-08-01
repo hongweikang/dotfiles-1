@@ -516,7 +516,7 @@ fi;
 # XXX Should this be just the default or unset?
 unset locale;
 
-case "$(uanem -s)" in
+case "$(uname -s)" in
     Darwin)
         is_alias ls && alias ls="command ls -CFG";
         is_alias ps && alias ps="command ps -Ao pid,ppid,nice,pri,pcpu,ruser,user,args";
