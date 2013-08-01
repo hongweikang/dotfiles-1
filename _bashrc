@@ -27,6 +27,7 @@ function is_function()
     [ "$(type -t ${1})" = "function" ] || return 251
 }
 
+__debug_vars() { true; }
 
 __check_var()
 { local ret=0; local v="$1"; [ -n "${!v}" ] || ret=253; __debug_vars v ${v} ret;     return $ret; }
@@ -56,13 +57,19 @@ __check_pid()
 { local ret=0; local p="$1"; 
                         __check_dir "/proc" && \
                       { __check_dir "/proc/$p" || ret=235; } || \
-                      { __export_prog kill && { $_KILL -0 $p 2>/dev/null || ret=235; } || ret=$?; }
+                      { __check_command kill && { command kill -0 $p 2>/dev/null || ret=235; } || ret=$?; }
                                                         __debug_vars p ret;          return $ret; }
 __check_pidfile()
 { local ret=0; local f="$1"; 
                        __check_file "$f"    || { ret=234; __debug_vars f ret;   return $ret; }
                        __check_read "$f"    || { ret=$?;  __debug_vars f ret;   return $ret; }
                        __check_pid "$(<$f)" ||   ret=$?;  __debug_vars f ret;   return $ret; }
+__check_command()
+{ local ret=0; local p="$1";
+                       command which "$p" >/dev/null 2>&1 || ret=239;
+                                                          __debug_vars f ret;   return $ret;
+
+}
 
 # wrapper for __check_thing functions
 # echo's an error in case of error
@@ -75,7 +82,7 @@ check_thing()
     return $?
     #XXX return $(__error_n 1 $? "${@}");
 }
-for i in var dir file read zero exec islink link pid pidfile; do
+for i in var dir file read zero exec islink link pid pidfile command; do
     eval "function check_$i() { check_thing \${FUNCNAME} "\${@}";}"
 done
 
@@ -150,15 +157,17 @@ function date_epochtime()
     local KERNELNAME=$(command uname -s)
     case "${KERNELNAME}" in
         Linux)
+            check_command date || return $?
             command date -u -d @${1} '+%Y-%m-%d %H:%M:%S%z'
             command date    -d @${1} '+%Y-%m-%d %H:%M:%S%z'
             ;;
         FreeBSD)
+            check_command date || return $?
             command date -u -j -f %s ${1} '+%Y-%m-%d %H:%M:%S%z'
             command date    -j -f %s ${1} '+%Y-%m-%d %H:%M:%S%z'
             ;;
         Darwin|SunOS)
-            command which perl || return $?
+            check_command perl || return $?
             command perl -e '
             use POSIX qw(strftime);
             my $epoch = $ARGV[0] != "" ? $ARGV[0] : time();
@@ -256,11 +265,11 @@ function readlink()
     # few alternative ways.
     local pathname="${1}";
     __check_islink "${pathname}" || return $?;
-    if [[ -n "$(command which readlink)" ]]; then
+    if [[ -n "$(check_command readlink)" ]]; then
         command readlink "${pathname}"
         return $?
     fi;
-    if [[ -n "$(command which perl)" ]]; then
+    if [[ -n "$(check_command perl)" ]]; then
         command perl -e "print readlink(\"${pathname}\").\"\n\";"
         return $?;
     fi;
@@ -299,11 +308,11 @@ function repeat()
 
 function seq()
 {
-    if command which seq; then
+    if check_command seq; then
         command seq $@;
         return $?;
     fi;
-    if commnad which jot; then
+    if check_command jot; then
         local option SOPT WOPT ONE TWO;
         while getopts ":ws:" option;
         do
@@ -332,7 +341,7 @@ function seq()
 
 function telnet()
 {
-    command which telnet || return $?;
+    check_command telnet || return $?;
     is_function uri_parse && uri_parse "${1}"
     if [ -n "$uri_schema" ] ;then
         [ "$uri_schema" = "telnet" ] || return 1
