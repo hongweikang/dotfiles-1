@@ -3,6 +3,12 @@
 # bootstrap installs things.
 
 DOTFILES_ROOT="`pwd`"
+source $DOTFILES_ROOT/_bashrc
+
+if check_command git; then
+    git submodule init
+    git submodule update
+fi
 
 set -e
 
@@ -38,7 +44,7 @@ install_dotfiles () {
   backup_all=false
   skip_all=false
 
-  for source in _*;
+  for source in $DOTFILES_ROOT/_*;
   do
     dest="$HOME/`basename \"${source/_/.}\"`"
 
