@@ -1,0 +1,48 @@
+# Source in public .profile (github.com/mopub/dotfiles)
+DOTFILES=<set dotfiles repo here>
+export DOTFILES
+source ${DOTFILES}/.profile
+
+enable_all_sh_plugins ${DOTFILES};
+
+# Following commented options are for zsh users
+# Path to your oh-my-zsh configuration.
+# ZSH=$HOME/.oh-my-zsh
+
+# Set name of the theme to load in ~/.oh-my-zsh/themes/
+# ZSH_THEME="robbyrussell"
+
+# plugins can be found in ~/.oh-my-zsh/plugins/*
+# plugins=(git osx brew pip redis-cli fasd zsh-syntax-highlighting)
+
+# source $ZSH/oh-my-zsh.sh
+
+# ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern cursor)
+
+# Customize to your needs...
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin
+
+# zsh options (man zshoptions for explanation)
+# changing directories
+setopt autocd
+setopt auto_pushd
+setopt chase_dots
+setopt chase_links
+setopt pushd_ignore_dups
+setopt pushd_minus
+setopt pushd_silent
+setopt pushd_to_home
+
+# completion
+setopt completeinword
+
+# history
+setopt appendhistory
+setopt histignoredups
+setopt sharehistory
+
+setopt nohup
+
+bindkey "jj" vi-cmd-mode
+export VISUAL=vim
+export EDITOR=$VISUAL
