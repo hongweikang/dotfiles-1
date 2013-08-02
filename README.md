@@ -45,7 +45,7 @@ Tools
 * Use [Ag](https://github.com/ggreer/the_silver_searcher) instead of Grep when available.
 * Use [Exuberant Ctags](http://ctags.sourceforge.net/) for looking up definitions and declarations.
 * Use [Cscope](http://cscope.sourceforge.net/) to easily navigate ctags.
-* Use [wombat256mod color scheme](http://www.vim.org/scripts/script.php?script_id=2465).
+* Use [wombat256mod](http://www.vim.org/scripts/script.php?script_id=2465) color scheme.
 
 [tmux](http://tmux.sourceforge.net/) configuration:
 
