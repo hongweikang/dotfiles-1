@@ -72,7 +72,7 @@ export LANG="C";
 export LC_ALL="C";
 export LESS="-w -i -s";
 export LESSHISTFILE="${HOME}/.less_history";
-export PAGER="command less";
+export PAGER="less";
 
 # Setup locale to native US English UTF, if possible
 unset locale;
