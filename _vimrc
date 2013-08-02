@@ -20,6 +20,7 @@ Bundle 'tpope/vim-fugitive'
 Bundle 'Shougo/neocomplcache'
 Bundle 'scrooloose/nerdcommenter'
 Bundle 'scrooloose/nerdtree'
+Bundle 'tpope/vim-surround'
 
 filetype plugin indent on     " required by Vundle
 
