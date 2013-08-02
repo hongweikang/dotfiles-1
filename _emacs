@@ -27,7 +27,6 @@
  '(flymake-errline ((((class color)) (:slant italic)))))
 
 ;; python
-
 ;; (setq auto-mode-alist (cons '("\\.py$" . python-mode) auto-mode-alist))
 ;; (setq interpreter-mode-alist (cons '("python" . python-mode)
 ;;                    interpreter-mode-alist))
@@ -43,7 +42,6 @@
 (autoload 'objc-mode "cc-mode" "Objective-C Editing Mode" t)
 (autoload 'java-mode "cc-mode" "Java Editing Mode" t)
 (require 'cc-mode)
-
 
 (require 'yaml-mode)
 (setq auto-mode-alist
@@ -63,15 +61,11 @@
       ("\\.yaml$" . yaml-mode)
      ) auto-mode-alist))
 
-
-
 ;; key bindings
 (global-set-key "\M-g" 'goto-line)
 (global-set-key "\M-r" 'replace-string)
 (global-set-key (kbd "C-x C-\\") 'comment-region)
 (global-set-key (kbd "C-x M-\\") 'uncomment-region)
-
-
 
 ;; no tabs
 (setq default-tab-width 4)
@@ -91,10 +85,6 @@
 
 ;;(set-face-foreground 'font-lock-comment-face "red")
 ;;(set-face-foreground 'font-lock-comment-delimiter-face "red")
-
-;; (require 'color-theme)
-;; (color-theme-initialize)
-;; (color-theme-clarity)
 
 (require 'color-theme)
 (color-theme-initialize)
