@@ -1,0 +1,457 @@
+#!/usr/bin/env bash
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+
+# Test if session is interactive
+function is_interactive()
+{
+    # If $- contains 'i', then we're interactive
+    [[ $- == *i* ]] \
+        && return 0 \
+        || return 1
+}
+
+# Test if arg is a known alias
+function is_alias()
+{
+    [ -z "${1}" ] && return 252
+    [ "$(type -t ${1})" = "alias" ] || return 250
+}
+
+# Test if arg is a known function
+function is_function()
+{
+    [ -z "${1}" ] && return 252
+    [ "$(type -t ${1})" = "function" ] || return 251
+}
+
+__debug_vars() { true; }
+
+__check_var()
+{ local ret=0; local v="$1"; [ -n "${!v}" ] || ret=253; __debug_vars v ${v} ret;     return $ret; }
+__check_dir()
+{ local ret=0; local d="$1"; [ -d "${d}"  ] || ret=249; __debug_vars d ret;          return $ret; }
+__check_file()
+{ local ret=0; local f="$1"; [ -f "${f}"  ] || ret=247; __debug_vars f ret;          return $ret; }
+__check_islink()
+{ local ret=0; local h="$1"; [ -h "${h}"  ] || ret=244; __debug_vars h ret;          return $ret; }
+__check_read()
+{ local ret=0; local f="$1";
+                        __check_file "$f"   || return $?;
+                             [ -r "${f}"  ] || ret=242; __debug_vars f ret;          return $ret; }
+__check_zero()
+{ local ret=0; local f="$1";
+                        __check_file "$f"   || return $?;
+                           [ ! -s "${f}"  ] || ret=241; __debug_vars f ret;          return $ret; }
+__check_exec()
+{ local ret=0; local x="$1";
+                        __check_file "$x"   || return $?;
+                             [ -x "${x}"  ] || ret=246; __debug_vars x ret;          return $ret; }
+__check_link()
+{ local ret=0; local h="$1";
+                        __check_islink "$h" || return $?;
+                             [ -e "${h}"  ] || ret=243; __debug_vars h ret;          return $ret; }
+__check_pid()
+{ local ret=0; local p="$1";
+                        __check_dir "/proc" && \
+                      { __check_dir "/proc/$p" || ret=235; } || \
+                      { __check_command kill && { command kill -0 $p 2>/dev/null || ret=235; } || ret=$?; }
+                                                        __debug_vars p ret;          return $ret; }
+__check_pidfile()
+{ local ret=0; local f="$1";
+                       __check_file "$f"    || { ret=234; __debug_vars f ret;   return $ret; }
+                       __check_read "$f"    || { ret=$?;  __debug_vars f ret;   return $ret; }
+                       __check_pid "$(<$f)" ||   ret=$?;  __debug_vars f ret;   return $ret; }
+__check_command()
+{ local ret=0; local p="$1";
+                       command which "$p" >/dev/null 2>&1 || ret=239;
+                                                          __debug_vars f ret;   return $ret;
+
+}
+
+# wrapper for __check_thing functions
+# echo's an error in case of error
+# used to avoid double traces
+# XXX trace functionality TBD
+check_thing()
+{
+    local func="${1}"; shift;
+    __${func} "${@}"
+    return $?
+    #XXX return $(__error_n 1 $? "${@}");
+}
+for i in var dir file read zero exec islink link pid pidfile command; do
+    eval "function check_$i() { check_thing \${FUNCNAME} "\${@}";}"
+done
+
+# Handles both __function and function
+# First run strips off the _thing (check_var)
+# Second run strips out the _var  (check_thing)
+check_var_thing()
+{
+    ${1%_*} "$2" \
+        && ${1//_var/} "${!2}" "${3:-$2}"
+    return $?
+}
+for i in dir file read zero exec islink link; do
+    eval "function __check_var_${i}() { check_var_thing \${FUNCNAME} "\${@}"; }"
+    eval "function   check_var_${i}() { check_var_thing \${FUNCNAME} "\${@}"; }"
+done;
+
+function basename()     { printf "%b\n" "${1##*/}"; }
+function cdlast()       { cd $(command ls -rt1 | command sed \$\!d); }
+function dirname()      { printf "%b\n" "${1%/*}";  }
+# prints the current timestamp
+function date_YMD_HMS() { command date +%Y%m%d_%H%M%S; }
+function history_r()    { history -r; }
+# History search
+function hgrep()        { history | command grep $1; }
+function path()         { printf "%b\n" ${PATH//:/\\n}; }
+function sortu()        { command sort | command uniq; }
+# Makes a string lowercase
+# tolower($1 = string)
+function tolower()      { command tr '[A-Z]' '[a-z]' <<<"$1" ; }
+function vimdiff_w()    { command vim -d -c 'set diffopt+=iwhite' ${@}; }
+function xgrep()        { command find . -iname "${2}" -exec command grep -H "${1}" {} \;; }
+
+# Expanded 'cd' functionality. Works normally, but also handles case when a
+# file is (accidentally) at the end of a pathname
+function cd()
+{
+    # $ cd
+    [[ -z "$1" ]] && { command cd; return $?; }
+
+    # $ cd -
+    { [[ "x$1" =~ ^x(|-)$ ]] || __check_dir "$1"; } && \
+        { command cd "$1"; return $?; }
+
+    # $ cd <something>
+    local DIR
+    # Handle Symlink'd directories; reach through the symlink
+    DIR="$1"
+    __check_var_link DIR && { DIR="$(readlinks "$1")"; }
+    __check_var_dir  DIR && { cd "$1"; return $?; }
+
+    # Try the parent if we're still erroring; may be a file
+    DIR="$1"
+    __check_var_dir DIR || { DIR="$(dirname "$DIR")"; }
+    __check_var_dir DIR && \
+    {
+        #echo "$DIR"
+        command cd "$DIR"
+        local RET=$?
+        echo "$PWD"
+        return $RET
+    }
+    # Let cd do its own thing if our
+    # best effort fails
+    command cd "$1"
+
+}
+
+# Convert epoch (Unix) timestamp to readable stamp
+function date_epochtime()
+{
+    local KERNELNAME=$(command uname -s)
+    case "${KERNELNAME}" in
+        Linux)
+            check_command date || return $?
+            command date -u -d @${1} '+%Y-%m-%d %H:%M:%S%z'
+            command date    -d @${1} '+%Y-%m-%d %H:%M:%S%z'
+            ;;
+        FreeBSD)
+            check_command date || return $?
+            command date -u -j -f %s ${1} '+%Y-%m-%d %H:%M:%S%z'
+            command date    -j -f %s ${1} '+%Y-%m-%d %H:%M:%S%z'
+            ;;
+        Darwin|SunOS)
+            check_command perl || return $?
+            command perl -e '
+            use POSIX qw(strftime);
+            my $epoch = $ARGV[0] != "" ? $ARGV[0] : time();
+            print strftime "%F %T+0000\n", gmtime($epoch);
+            print strftime "%F %T%z\n", localtime($epoch);
+            ' "${1}" || return $?
+            ;;
+        *)
+            printf "%b\n" "Unsupported platform ${KERNELNAME}"
+    esac
+}
+
+function head_tail()
+{
+    for file in ${@}; do
+        [ -f "${file}" ] || continue
+        printf '\n%b\n' "${file} >>>"
+        command sed q ${file} && command sed \$\!d ${file}
+    done
+}
+
+function prompt()
+{
+    [ -z "${PS1}" ] && return 1;
+
+    # color_name='\[\033[ color_code m\]';
+
+    local           fg_black='\[\033[00;30;47m\]';
+    local       fg_firebrick='\[\033[00;31m\]';
+    local       bg_firebrick='\[\033[00;30;41m\]';
+    local             fg_red='\[\033[01;31m\]';
+    local             bg_red='\[\033[01;30;41m\]';
+    local          fg_forest='\[\033[00;32m\]';
+    local          bg_forest='\[\033[00;30;42m\]';
+    local           fg_green='\[\033[01;32m\]';
+    local           bg_green='\[\033[01;30;42m\]';
+    local           fg_brown='\[\033[00;33m\]';
+    local           bg_brown='\[\033[00;30;43m\]';
+    local          fg_yellow='\[\033[01;33m\]';
+    local          bg_yellow='\[\033[01;30;43m\]';
+    local            fg_navy='\[\033[00;34m\]';
+    local            bg_navy='\[\033[00;30;44m\]';
+    local            fg_blue='\[\033[01;34m\]';
+    local            bg_blue='\[\033[01;30;44m\]';
+    local          fg_purple='\[\033[00;35m\]';
+    local          bg_purple='\[\033[00;30;45m\]';
+    local         fg_magenta='\[\033[01;35m\]';
+    local         bg_magenta='\[\033[01;30;45m\]';
+    local           fg_cadet='\[\033[00;36m\]';
+    local           bg_cadet='\[\033[00;30;46m\]';
+    local            fg_cyan='\[\033[01;36m\]';
+    local            bg_cyan='\[\033[01;30;46m\]';
+    local            fg_gray='\[\033[00;37m\]';
+    local            bg_gray='\[\033[00;30;47m\]';
+    local           fg_white='\[\033[01;37;40m\]';
+    local            restore='\[\033[00m\]';
+
+    local  color_host="${!1}";
+    local  color_dir="${!2}";
+    local  color_restore="${restore}";
+    color_dir="${color_dir:-$fg_cyan}";
+    [ -z "${color_host}" ] && color_dir="" && color_restore="";
+
+    export PS1="${color_host}[\u@\h ${color_dir}\W${color_restore}${color_host}]\\\$${color_restore} ";
+    export PS2='> ';
+    export PS4='+ ';
+}
+
+# Process search
+function psgrep() { command ps -Ao pid,ppid,nice,pri,pcpu,ruser,user,args | grep ${1} | fgrep -v "grep ${1}"; }
+# Silent version
+function __psgrep() { psgrep "${1}" >/dev/null; }
+
+# Similar to the python function
+# range ( [start], stop [, step] )
+# start defaults to zero; step defaults to one; priority given to setting start
+function range()
+{
+    is_function seq || return $?;
+    case ${#@} in
+        1) seq 0 $(($1-1));;
+        2) seq $1 $(($2-1));;
+        3)
+            local n;
+            [ $3 -ge 0 ] && n=$(($2-1)) || n=$(($2+1));
+            seq $1 $3 $n;
+            ;;
+        *) return $(__error 252 "seq");;
+    esac
+}
+
+function readlink()
+{
+    # Some platforms don't have a readlink binary, so we're going to try a
+    # few alternative ways.
+    local pathname="${1}";
+    __check_islink "${pathname}" || return $?;
+    if [[ -n "$(check_command readlink)" ]]; then
+        command readlink "${pathname}"
+        return $?
+    fi;
+    if [[ -n "$(check_command perl)" ]]; then
+        command perl -e "print readlink(\"${pathname}\").\"\n\";"
+        return $?;
+    fi;
+    return $?;
+}
+
+function readlinks()
+{
+    local pathname="${1}";
+    local target;
+    __check_islink "${pathname}" || return $?;
+    while [ -n "${pathname}" ]; do
+        target="$(readlink "${pathname}")"
+        __check_link "${target}" || break;
+        pathname="${target}";
+    done;
+    __check_var_file target || return 243
+    printf "%b\n" "${target}"
+    return 0;
+}
+
+function repeat()
+{
+    # repeater function
+    # First param is the number of repeats,
+    # Second and following is what you want done.
+
+    is_function seq || return $?;
+
+    local count="${1}" i;
+    shift;
+    for i in $(seq "${count}"); do
+        eval "${@}";
+    done;
+}
+
+# seq(uence) function to provide fall-back support where seq is not
+# available, but jot is.
+function seq()
+{
+    if check_command seq; then
+        command seq $@;
+        return $?;
+    fi;
+    if check_command jot; then
+        local option SOPT WOPT ONE TWO;
+        while getopts ":ws:" option;
+        do
+            case "$option" in
+                s)
+                    SOPT="${OPTARG}" ;;
+                w)
+                    WOPT="yes";;
+            esac;
+        done;
+        unset OPTARG;
+        shift $((OPTIND-1)); unset OPTIND;
+        if [ "x${WOPT}" = "xyes" ]; then
+            let ONE=${#1}
+            let TWO=${#2}
+            __debug_vars ONE TWO;
+            [ "$ONE" -ge "$TWO" ] \
+                && WOPT="%0${ONE}d" \
+                || WOPT="%0${TWO}d";
+        fi;
+        [ -n "$2" ] && local RANGE="$(expr $2 - $1 + 1)";
+        command jot ${SOPT:+-s $SOPT} ${WOPT:+-w $WOPT} ${RANGE} $1 $2;
+        return $?;
+    fi;
+}
+
+# function wrapper for telnet that can handle uri format telnet://user@host:port
+function telnet()
+{
+    check_command telnet || return $?;
+    is_function uri_parse && uri_parse "${1}"
+    if [ -n "$uri_schema" ] ;then
+        [ "$uri_schema" = "telnet" ] || return 1
+        set -- ${uri_user:+-l $uri_user }$uri_host ${uri_port:-telnet}
+    fi
+    is_function uri_parse && uri_parse
+    command telnet ${@};
+}
+
+#
+# URI parsing function
+#
+# The function creates global variables with the parsed results.
+# returns 0 if parsing was successful or non-zero otherwise.
+# calling function without parameters clears global variables.
+#
+# [schema://][user[:password]@]host[:port][/path][?[arg1=val1]...][#fragment]
+#
+function uri_parse() {
+
+    if [[ ${#} -lt 1 ]]; then
+        unset uri uri_schema uri_address uri_user uri_password uri_host
+        unset uri_port uri_path uri_query uri_fragment uri_parts uri_args
+        return 0
+    fi
+    local pattern count path query
+
+    # uri capture
+    uri="$@"
+
+    # safe escaping
+    uri="${uri//\`/%60}"
+    uri="${uri//\"/%22}"
+
+    # top level parsing
+    local pattern='^(([a-z]{3,6})://)?((([^:\/]+)(:([^@\/]*))?@)?([^:\/?]+)(:([0-9]+))?)(\/[^?]*)?(\?[^#]*)?(#.*)?$'
+    [[ "$uri" =~ $pattern ]] || \
+    {
+        __debug_vars uri pattern
+        return 1;
+    }
+
+    # component extraction
+    uri=${BASH_REMATCH[0]}
+    uri_schema=${BASH_REMATCH[2]}
+    uri_address=${BASH_REMATCH[3]}
+    uri_user=${BASH_REMATCH[5]}
+    uri_password=${BASH_REMATCH[7]}
+    uri_host=${BASH_REMATCH[8]}
+    uri_port=${BASH_REMATCH[10]}
+    uri_path=${BASH_REMATCH[11]}
+    uri_query=${BASH_REMATCH[12]}
+    uri_fragment=${BASH_REMATCH[13]}
+
+    # path parsing
+    count=0
+    path="$uri_path"
+    pattern='^/+([^/]+)'
+    while [[ $path =~ $pattern ]]; do
+        eval "uri_parts[$count]=\"${BASH_REMATCH[1]}\""
+        path="${path:${#BASH_REMATCH[0]}}"
+        let count++
+    done
+
+    # query parsing
+    count=0
+    query="$uri_query"
+    pattern='^[?&]+([^= ]+)(=([^&]*))?'
+    while [[ $query =~ $pattern ]]; do
+        eval "uri_args[$count]=\"${BASH_REMATCH[1]}\""
+        eval "uri_arg_${BASH_REMATCH[1]}=\"${BASH_REMATCH[3]}\""
+        query="${query:${#BASH_REMATCH[0]}}"
+        let count++
+    done
+
+    # return success
+    return 0
+}
+
+#
+# URL encode/decode pair
+#
+# The function creates global variables with the parsed results.
+# returns 0 if parsing was successful or non-zero otherwise.
+# calling function without parameters clears global variables.
+#
+# [schema://][user[:password]@]host[:port][/path][?[arg1=val1]...][#fragment]
+# URLencode/decode pair
+function urlencode()
+{
+    local string="${1}"
+    local strlen=${#string}
+    local encoded=""
+
+    __check_var string
+
+    for (( pos=0 ; pos<strlen ; pos++ )); do
+        c=${string:$pos:1}
+        case "$c" in
+            [-_.~a-zA-Z0-9] ) o="${c}" ;;
+            * )               printf -v o '%%%02x' "'$c" ;;
+        esac
+        encoded+="${o}"
+    done
+    printf '%b\n' "${encoded}"
+}
+function urldecode()
+{
+    printf '%b' "${1//%/\\x}"
+}
+
+

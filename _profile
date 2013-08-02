@@ -19,12 +19,14 @@ enable_sh_plugin() {
     shift
     # If a list of "DOTFILES" locations are passed in, use them
     local DOTFILES=${@:-${DOTFILES}}
-    local d
+    local d p
     for d in ${DOTFILES}; do
         # check profile.d, _profile.d and .profile.d
-        if [ -r $d/{,.,_}profile.d/${PLUGIN}.sh ]; then
-            . $d/{,.,_}profile.d/${PLUGIN}.sh
-        fi
+        for p in ${d}/{,.,_}profile.d/*.sh; do
+            if [ -r $p ]; then
+                . $p
+            fi
+        done
     done
 }
 
