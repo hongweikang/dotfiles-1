@@ -13,13 +13,13 @@ Bundle 'gmarik/vundle'
 " Add add'l vundle packages
 Bundle 'steffanc/a.vim'
 Bundle 'steffanc/ack.vim'
-Bundle 'steffanc/cscopemaps.vim'
 Bundle 'bling/vim-airline'
-Bundle 'tpope/vim-fugitive'
+Bundle 'steffanc/cscopemaps.vim'
 Bundle 'kien/ctrlp.vim'
+Bundle 'tpope/vim-fugitive'
+Bundle 'Shougo/neocomplcache'
 Bundle 'scrooloose/nerdcommenter'
 Bundle 'scrooloose/nerdtree'
-Bundle 'Shougo/neocomplcache'
 
 filetype plugin indent on     " required by Vundle
 

@@ -5,11 +5,6 @@
 DOTFILES_ROOT="`pwd`"
 source $DOTFILES_ROOT/_bashrc
 
-if check_command git; then
-    git submodule init
-    git submodule update
-fi
-
 set -e
 
 echo ''
@@ -30,6 +25,15 @@ fail () {
   printf "\r\033[2K  [\033[0;31mFAIL\033[0m] $1\n"
   echo ''
   exit
+}
+
+init_vundle () {
+  if check_command git; then
+    git submodule init
+    git submodule update
+  else
+    info 'Git is not installed cannot init Vundle submodule'
+  fi
 }
 
 link_files () {
@@ -104,6 +108,7 @@ install_dotfiles () {
   done
 }
 
+init_vundle
 install_dotfiles
 
 echo ''
