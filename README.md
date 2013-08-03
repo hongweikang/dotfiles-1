@@ -63,6 +63,6 @@ Credits
 Thank you to Turtle, Steffan and Haydn putting this together as a part of their
 hackweek project. Thanks to all mopub engineers that have contributed their configs.
 
-Also, thank you countless existing dotfile repos from which scripts were
+Also, thank you to countless existing dotfile repos from which scripts were
 modified and design was inspired.
 
